@@ -4,6 +4,8 @@ import sys
 
 import numpy as np
 import pandas as pd
+
+from dotenv import load_dotenv
 from mlflow.tracking import MlflowClient
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.metrics import f1_score
@@ -11,7 +13,10 @@ from sklearn.preprocessing import StandardScaler
 
 import mlflow
 
-DATA_BUCKET = os.getenv("DATA_BUCKET", 'wojtek-ml-project')
+
+load_dotenv()
+
+BUCKET = os.getenv("BUCKET")
 
 REMOTE_TRACKING_IP = os.getenv("REMOTE_IP", "localhost")
 MLFLOW_TRACKING_URI = f"http://{REMOTE_TRACKING_IP}:5000"
@@ -40,7 +45,7 @@ mlflow.artifacts.download_artifacts(
 with open("preprocessors.pkl", "rb") as file:
     (cvect, tfdif) = pickle.load(file)
 
-df_test = pd.read_csv(f'gs://{DATA_BUCKET}/data/data_test.tsv', sep='\t')
+df_test = pd.read_csv(f'gs://{BUCKET}/data/data_test.tsv', sep='\t')
 X_test, y_test = prepare_data(df_test, cvect, tfdif)
 print(X_test.shape)
 
@@ -77,4 +82,4 @@ mlflow.artifacts.download_artifacts(
 )
 
 # save the best model in a convenient place in your bucket for the google cloud function
-os.system(f'gsutil -m cp model/* gs://{DATA_BUCKET}/model/')
+os.system(f'gsutil -m cp model/* gs://{BUCKET}/model/')

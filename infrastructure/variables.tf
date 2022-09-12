@@ -5,6 +5,7 @@ variable "gcp_region" {
 
 variable "gcp_project_id" {
   description = "Project ID in GCP"
+  default = "civic-boulevard-358709"
 }
 
 variable "gcp_credentials" {
@@ -22,6 +23,6 @@ variable "credentials" {
 variable "service-account" {
 }
 
-variable "data_bucket_name" {
+variable "bucket_name" {
   default = "wojtek-ml-project"
 }

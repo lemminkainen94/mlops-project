@@ -1,2 +1,4 @@
-export DATA_BUCKET='wojtek-ml-project'
-gsutil -m cp data/*.tsv gs://$DATA_BUCKET/data/
+export $(cat .env)
+
+gsutil -m cp model/* gs://$BUCKET/model/
+gsutil -m cp data/*.tsv gs://$BUCKET/data/

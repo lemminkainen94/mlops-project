@@ -7,6 +7,7 @@ import pickle
 import sys
 
 import pandas as pd
+from dotenv import load_dotenv
 from evidently import ColumnMapping
 from evidently.dashboard import Dashboard
 from evidently.dashboard.tabs import ClassificationPerformanceTab, DataDriftTab
@@ -21,7 +22,10 @@ from sklearn.metrics import f1_score
 from prefect import flow, task
 from prefect.deployments import Deployment
 
-DATA_BUCKET = os.getenv("DATA_BUCKET", 'wojtek-ml-project')
+
+load_dotenv()
+
+BUCKET = os.getenv("BUCKET")
 
 
 def preprocess_data(df):
@@ -45,7 +49,7 @@ def load_reference_data(filename):
 
 @task
 def fetch_data():
-    df = pd.read_csv(f"gs://{DATA_BUCKET}/data/predictions.tsv", sep='\t')
+    df = pd.read_csv(f"gs://{BUCKET}/data/predictions.tsv", sep='\t')
     return df
 
 
@@ -74,7 +78,7 @@ def save_html_report(result):
 
 @flow
 def batch_analyze():
-    ref_data = load_reference_data(f'gs://{DATA_BUCKET}/data/data_train.tsv')
+    ref_data = load_reference_data(f'gs://{BUCKET}/data/data_train.tsv')
     data = fetch_data()
     result = run_evidently(ref_data, data)
     save_html_report(result)

@@ -1,0 +1,24 @@
+name: CI tests
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.12
+      - name: Install Dependencies
+        run: pip install pipenv && python -m pipenv install --dev --python 3.9.12
+
+      - name: Run tests
+        run: |
+          pipenv run pytest -m offline

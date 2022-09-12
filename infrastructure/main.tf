@@ -3,7 +3,7 @@ terraform {
   backend "gcs" {
     bucket = "tbsa-terraform-state"
     prefix = "tfstate-stg"
-    credentials = "terraform-account.json"
+    credentials = "terraform-service.json"
   }
   required_providers {
     google = {
@@ -18,9 +18,9 @@ provider "google" {
   zone    = "europe-central2-a"
 }
 
-module "data_bucket" {
+module "bucket" {
   source = "./modules/gs"
-  bucket_name = "${var.prefix}-${var.data_bucket_name}"
+  bucket_name = "${var.prefix}-${var.bucket_name}"
   service-account = var.service-account
 }
 
@@ -30,23 +30,23 @@ resource "local_file" "env_file" {
 
   content = <<EOT
 PROJECT_ID=${var.gcp_project_id}
-DATA_BUCKET=${var.prefix}-${var.data_bucket_name}
+BUCKET=${var.prefix}-${var.bucket_name}
 EOT
 
   filename = "../terraformenv"
 }
 resource null_resource "func_env_file" {
   provisioner "local-exec" {
-    command = "cd ../ && cp terraformenv function/.env"
+    command = "cd ../ && cp terraformenv app/.env"
   }
   depends_on = [local_file.env_file]
 }
 
 
-module "function" {
-  source = "./modules/function"
+module "app" {
+  source = "./modules/app"
   prefix = var.prefix
   project_id = var.gcp_project_id
-  data_bucket_name = module.data_bucket.bucket_name
-  depends_on = [ module.data_bucket, null_resource.func_env_file ]
+  bucket_name = module.bucket.bucket_name
+  depends_on = [ module.bucket, null_resource.func_env_file ]
 }

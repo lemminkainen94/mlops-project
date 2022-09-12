@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from datetime import timedelta
+from dotenv import load_dotenv
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 from hyperopt.pyll import scope
 from mlflow.entities import ViewType
@@ -26,7 +27,10 @@ from sklearn.metrics import f1_score, accuracy_score, confusion_matrix
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 
-DATA_BUCKET = os.getenv("DATA_BUCKET", 'wojtek-ml-project')
+
+load_dotenv()
+
+BUCKET = os.getenv("BUCKET")
 
 REMOTE_TRACKING_IP = os.getenv("REMOTE_IP", "localhost")
 MLFLOW_TRACKING_URI = f"http://{REMOTE_TRACKING_IP}:5000"
@@ -145,8 +149,8 @@ def train_and_log_best(x_train, y_train, x_test, y_test):
 
 @flow
 def main():
-    df_train = pd.read_csv(f'gs://{DATA_BUCKET}/data/data_train.tsv', sep='\t')
-    df_test = pd.read_csv(f'gs://{DATA_BUCKET}/data/data_test.tsv', sep='\t')
+    df_train = pd.read_csv(f'gs://{BUCKET}/data/data_train.tsv', sep='\t')
+    df_test = pd.read_csv(f'gs://{BUCKET}/data/data_test.tsv', sep='\t')
     vectorizer_params = dict(ngram_range=(1, 2), max_df=0.8)
     x_train, x_test, y_train, y_test, cvect, tfidf_trans = prepare_data(df_train, df_test, vectorizer_params)
     save_preprocessors(cvect, tfidf_trans)

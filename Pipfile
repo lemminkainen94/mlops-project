@@ -1,0 +1,29 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+mlflow = "*"
+google-cloud-storage = "*"
+sklearn = "*"
+hyperopt = "*"
+google-cloud = "*"
+gcsfs = "*"
+matplotlib = "*"
+functions-framework = "*"
+prefect = "*"
+pyarrow = "*"
+evidently = "*"
+pymongo = "*"
+python-dotenv = "*"
+
+[dev-packages]
+pytest = "*"
+functions-framework = "*"
+black = "*"
+pre-commit = "*"
+isort = "*"
+
+[requires]
+python_version = "3.9"
