@@ -2,31 +2,27 @@
 Uses hyperopt to search for the best model, then logs the best model. Builds a Prefect Deployment
 """
 import os
+import pickle
 import time
 import warnings
+from datetime import timedelta
 
-import pickle
-
-import mlflow
 import numpy as np
 import pandas as pd
-
-from datetime import timedelta
 from dotenv import load_dotenv
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 from hyperopt.pyll import scope
 from mlflow.entities import ViewType
 from mlflow.tracking import MlflowClient
-from prefect.blocks.system import String
 from prefect import flow, task
+from prefect.blocks.system import String
 from prefect.deployments import Deployment
-
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, accuracy_score, confusion_matrix
 from sklearn.linear_model import SGDClassifier
-from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 
+import mlflow
 
 load_dotenv()
 
@@ -58,32 +54,43 @@ def prepare_data(df_train, df_test, vectorizer_params):
     tfidf_transformer = TfidfTransformer().fit(word_idx)
 
     x_train = tfidf_transformer.transform(word_idx)
-    x_test = tfidf_transformer.transform(count_vect.transform(df_test.target_text.values))
-    
-    return x_train, x_test, df_train.sentiment, df_test.sentiment, count_vect, tfidf_transformer
+    x_test = tfidf_transformer.transform(
+        count_vect.transform(df_test.target_text.values)
+    )
+
+    return (
+        x_train,
+        x_test,
+        df_train.sentiment,
+        df_test.sentiment,
+        count_vect,
+        tfidf_transformer,
+    )
 
 
 @task
 def hyperopt_search(x_train, y_train):
     def objective(params):
         with mlflow.start_run():
-            mlflow.set_tag('model', 'sgd')
+            mlflow.set_tag("model", "sgd")
             mlflow.log_params(params)
             sgd = SGDClassifier(max_iter=1000, **params)
             kfold = StratifiedKFold(n_splits=5, shuffle=True)
-            f1_mac = cross_val_score(sgd, x_train, y_train, cv=kfold, scoring='f1_macro', verbose=False).mean()
-            mlflow.log_metric('f1_macro', f1_mac)
-        
-        return {'loss': -f1_mac, 'status': STATUS_OK}
-    
-    loss = ['hinge', 'log', 'perceptron', 'modified_huber']
-    penalty = ['l1', 'l2']
+            f1_mac = cross_val_score(
+                sgd, x_train, y_train, cv=kfold, scoring="f1_macro", verbose=False
+            ).mean()
+            mlflow.log_metric("f1_macro", f1_mac)
+
+        return {"loss": -f1_mac, "status": STATUS_OK}
+
+    loss = ["hinge", "log", "perceptron", "modified_huber"]
+    penalty = ["l1", "l2"]
 
     search_space = {
-        'loss': hp.choice('loss', loss),
-        'alpha': hp.loguniform('alpha', -8, -1),
-        'penalty': hp.choice('penalty', penalty),
-        'tol': hp.loguniform('tol', -4, 0)
+        "loss": hp.choice("loss", loss),
+        "alpha": hp.loguniform("alpha", -8, -1),
+        "penalty": hp.choice("penalty", penalty),
+        "tol": hp.loguniform("tol", -4, 0),
     }
 
     best_result = fmin(
@@ -91,11 +98,11 @@ def hyperopt_search(x_train, y_train):
         space=search_space,
         algo=tpe.suggest,
         max_evals=100,
-        trials=Trials()
+        trials=Trials(),
     )
 
-    best_result['loss'] = loss[best_result['loss']]
-    best_result['penalty'] = penalty[best_result['penalty']]
+    best_result["loss"] = loss[best_result["loss"]]
+    best_result["penalty"] = penalty[best_result["penalty"]]
     print(best_result)
 
 
@@ -107,7 +114,7 @@ def train_best_model(x_train, y_train, x_test, y_test, tag, params):
         sgd.fit(x_train, y_train)
 
         predicted = sgd.predict(x_test)
-        f1_mac = f1_score(y_test, predicted, average='macro') 
+        f1_mac = f1_score(y_test, predicted, average="macro")
         acc = accuracy_score(y_test, predicted)
         mlflow.log_metric("f1_macro", f1_mac)
         mlflow.log_metric("accuracy", acc)
@@ -119,7 +126,7 @@ def train_and_log_best(x_train, y_train, x_test, y_test):
     try:
         current_tag_block = String.load("version-counter")
     except ValueError:
-        current_tag_block = String(value='1')
+        current_tag_block = String(value="1")
         current_tag_block.save(name="version-counter")
     print(current_tag_block)
     current_tag = int(current_tag_block.value)
@@ -133,26 +140,28 @@ def train_and_log_best(x_train, y_train, x_test, y_test):
         order_by=["metrics.f1_macro DESC"],
     )
     params = best_run[0].data.params
-    params['alpha'] = float(params['alpha'])
-    params['tol'] = float(params['tol'])
+    params["alpha"] = float(params["alpha"])
+    params["tol"] = float(params["tol"])
     train_best_model(x_train, y_train, x_test, y_test, current_tag, params)
     os.system("rm preprocessors.pkl")
-    
+
     experiment_id = client.get_experiment_by_name(TBSA_EXPERIMENT_NAME).experiment_id
     all_runs = client.search_runs(experiment_ids=experiment_id)
     for mlflow_run in all_runs:
         client.delete_run(mlflow_run.info.run_id)
-    
+
     new_tag = String(value=f"{current_tag + 1}")
     new_tag.save(name="version-counter", overwrite=True)
 
 
 @flow
 def main():
-    df_train = pd.read_csv(f'gs://{BUCKET}/data/data_train.tsv', sep='\t')
-    df_test = pd.read_csv(f'gs://{BUCKET}/data/data_test.tsv', sep='\t')
+    df_train = pd.read_csv(f"gs://{BUCKET}/data/data_train.tsv", sep="\t")
+    df_test = pd.read_csv(f"gs://{BUCKET}/data/data_test.tsv", sep="\t")
     vectorizer_params = dict(ngram_range=(1, 2), max_df=0.8)
-    x_train, x_test, y_train, y_test, cvect, tfidf_trans = prepare_data(df_train, df_test, vectorizer_params)
+    x_train, x_test, y_train, y_test, cvect, tfidf_trans = prepare_data(
+        df_train, df_test, vectorizer_params
+    )
     save_preprocessors(cvect, tfidf_trans)
     hyperopt_search(x_train, y_train)
     mlflow.set_experiment(EXPERIMENT_NAME)

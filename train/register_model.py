@@ -4,15 +4,11 @@ import sys
 
 import numpy as np
 import pandas as pd
-
 from dotenv import load_dotenv
 from mlflow.tracking import MlflowClient
-from sklearn.feature_extraction import DictVectorizer
 from sklearn.metrics import f1_score
-from sklearn.preprocessing import StandardScaler
 
 import mlflow
-
 
 load_dotenv()
 
@@ -23,17 +19,16 @@ MLFLOW_TRACKING_URI = f"http://{REMOTE_TRACKING_IP}:5000"
 
 client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
 
-EXPERIMENT_NAME = 'chosen-models-tbsa'
-MODEL_NAME = 'tbsa-model'
+EXPERIMENT_NAME = "chosen-models-tbsa"
+MODEL_NAME = "tbsa-model"
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 
-
 def prepare_data(df, cvect, tfidf):
     word_idx = cvect.transform(df.target_text.values)
-    x_test = tfidf.transform(word_idx)    
+    x_test = tfidf.transform(word_idx)
     return x_test, df_test.sentiment
 
 
@@ -45,7 +40,7 @@ mlflow.artifacts.download_artifacts(
 with open("preprocessors.pkl", "rb") as file:
     (cvect, tfdif) = pickle.load(file)
 
-df_test = pd.read_csv(f'gs://{BUCKET}/data/data_test.tsv', sep='\t')
+df_test = pd.read_csv(f"gs://{BUCKET}/data/data_test.tsv", sep="\t")
 X_test, y_test = prepare_data(df_test, cvect, tfdif)
 print(X_test.shape)
 
@@ -55,7 +50,7 @@ logged_model = f"runs:/{run_id}/model"
 loaded_model = mlflow.pyfunc.load_model(logged_model)
 
 y_pred = loaded_model.predict(X_test)
-test_score = f1_score(y_test, y_pred, average='macro')
+test_score = f1_score(y_test, y_pred, average="macro")
 
 try:
     client.create_registered_model(name=MODEL_NAME)
@@ -82,4 +77,4 @@ mlflow.artifacts.download_artifacts(
 )
 
 # save the best model in a convenient place in your bucket for the google cloud function
-os.system(f'gsutil -m cp model/* gs://{BUCKET}/model/')
+os.system(f"gsutil -m cp model/* gs://{BUCKET}/model/")

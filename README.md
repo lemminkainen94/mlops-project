@@ -64,17 +64,42 @@ See the `Makefile` for other commands.
 
 ## Components
 
+### Prefect
+
+For scheduling, I use prefect and run it locally with `prefect orion start`. I also set up a String block `version-counter`. This value corresponds to the tag that will be set on the MLFlow runs. Keep the prefect running for training and monitoring.
+
 ### Training and Experiment Tracking
+
+I'm using MLFlow for experiment tracking and Hyperopt for parameter tuning. In order to run training yourself, you can do the following:
+1. Start mlflow UI with `mlflow ui --backend-store-uri sqlite:///mlflow.db --default-artifact-root gs://your-bucket/artifacts --host 0.0.0.0`
+2. Start prefect server with: `prefect orion start`
+3. Start the prefect agent on your queue `prefect agent start --work-queue "ml"`
+4. Run `./prefect_run.sh` This will deploy the trainig task and run it with the agent started above.
+5. Get the run id of the best model, go to `training` and run `python register_model.py <run_id>`.
 
 ### Monitoring
 
-### Prefect
+I use Evidently AI for monitoring. Since it is difficult to measure a data-drift on Tfidf features (there are thousands of them), I only generate the classification report to compare how the deployed model performs on the new vs past data.
+
+In order to generate the html report:
+1. Start prefect server with: `prefect orion start`
+2. Start the prefect agent on your queue `prefect agent start --work-queue "ml"`
+3. run `python monitoring/monitoring.py && prefect deployment run batch_analyze/evidently-report`. This should generate an html file you can view in your browser.
 
 ### Testing
 
+`pytest -m offline` for unit tests and `pytest -m online` for an integration test
+
 ### Pre-commit hooks
 
+`.pre-commit-config.yaml` defines all hooks used in this project.
+1. Some pre-defined hook, pylint and black are used for linting and formatting.
+2. `isort` for sorting the libraries.
+3. `pytest -m offline` runs unit tests.
+
 ### Continuous Integration
+
+`.github/workflows/ci-test.yaml` defines some simple env setup and tests to run as some minimalisitc CI example.
 
 ## Destroying the Infrastructure:
 

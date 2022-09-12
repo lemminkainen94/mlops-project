@@ -23,6 +23,7 @@ repos:
         - id: pylint
           name: pylint
           entry: pylint ./app/main.py
+          exclude: train*|monitoring*
           language: system
           types: [python]
           args: [
